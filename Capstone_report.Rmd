@@ -1,0 +1,694 @@
+---
+title: "Capstone_report"
+author: "Marta Tenconi"
+date: "17 June 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Introduction
+This project is about the customer segmentation of a mall. 
+The data can be obtained from kaggle datasets: (https://www.kaggle.com/vjchoudhary7/customer-segmentation-tutorial-in-python)
+The original data set was created only for learning purpose.
+
+## The context:
+The data set provides membership cards information of a mall. Basic data about the customers are provided as: Customer ID, age, gender, annual income, spending score.
+
+## The datasets:
+The file "Mall_Customers.csv" is here opened in a data frame named "data". It has 200 observations of 5 variables. Each line of the file refers to one customer, and describes the following attributes:
+- CustomerID = Unique ID assigned to the customer,  
+- Gender = Gender of the customer,  
+- Age = Age of the customer,  
+- Annual Income (k$) = Annual Income of the customers,  
+- Spending Score (1-100) = Score assigned by the mall based on customer behavior and spending nature. 
+
+## Aim of the project:
+To understand the behavior of the customers of a mall and to divide them into distinct segments, accordingly.
+Different segments have different habits and needs, therefore, after the segmentation process marketers will be able to develop different strategies to target each specific segment. In this way, the mall will be able to focus on particular target groups so as to provide the best experience for them.
+
+## Key steps:
+First step: download of the data set and download of the required libraries.  
+Second step: some data exploration and data visualization.  
+Third step: analysis of the data: clustering using principal component analysis and K-means.  
+Fourth step: interpretation of the data.  
+Final step: conclusions.  
+  
+  
+
+####################################################################################
+# 2. Data set and libraries download
+  
+Download of the dataset from the website (https://www.kaggle.com/vjchoudhary7/customer-segmentation-tutorial-in-python) and import the file in R. 
+```{r, echo=FALSE}
+path <- file.path("C:", "Users", "marta", "Downloads", "Mall_Customers.csv")    
+data <- read.csv(path, header = TRUE, sep = ",")
+```
+
+Download of the libraries needed for the project.
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+if(!require(gplots)) install.packages("gplots", repos = "http://cran.us.r-project.org")
+if(!require(viridis)) install.packages("viridis", repos = "http://cran.us.r-project.org")
+if(!require(ggalt)) install.packages("ggalt", repos = "http://cran.us.r-project.org")
+```
+  
+  
+
+####################################################################################
+# 3. Exploration of the data and data visualization
+  
+## 'data' set details:
+'data' is an object of class data frame composed by 5 variables:  
+- CustomerID: Unique ID assigned to each customer,  
+- Gender: Gender of the customers,  
+- Age: Age of the customers,  
+- Annual Income (k$): Annual Income of the customers, 
+- Spending Score (1-100): Score assigned by the mall based on customer behavior and spending nature.  
+
+Class of 'data' data set:
+```{r, echo=FALSE}
+class(data)
+
+```
+Structure of 'data' data set:
+```{r, echo=FALSE}
+str(data)
+```
+Each row of data represents one costumer identified by the CustomerID, no missing values are present:
+```{r, echo=FALSE}
+head(data)
+```
+
+Summary of the data:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+summary(data[2:5]) %>% knitr::kable()
+```
+
+Average and standard deviation of the data:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data %>% 
+  summarize(avg_Age = round(mean(Age),2), sd_Age = round(sd(Age),2), 
+            avg_Annual.Income = round(mean(Annual.Income..k..),2), sd_Annual.Income = round(sd(Annual.Income..k..),2), 
+            avg_Spending.Score = round(mean(Spending.Score..1.100.),2), sd_Spending.Score = round(sd(Spending.Score..1.100.),2)) %>% 
+  knitr::kable()
+```
+
+Customers age, annual income and spending score have high standard deviations.
+
+
+###############################################################
+# Data Visualization
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+labels <- c("Customer ID", "Gender", "Age", "Annual Income (k$)", "Spending Score (1-100)")
+age_20 <- cut(data$Age, breaks = c(0, 20, 40, 60, 80), right = FALSE)  # different classes of age (by 20 years)
+Annual.Income_20 <- cut(data$Annual.Income..k.., breaks = c(0, 20, 40, 60,80, 100, 120, 140, 160), right = FALSE) # different classes of annual incomes (grouped by 20K $)
+Spending.Score_25 <- cut(data$Spending.Score..1.100., breaks = c(0, 25, 50, 75, 100), right = FALSE) # different classes of spending scores (grouped by 25)
+f_index <- which(data$Gender == "Female") # subgroup of the female customers
+m_index <- which(data$Gender == "Male") # subgroup of the male customers
+```
+
+## A. Histograms
+Histograms of the age, annual income and spending score, overlapped by the smooth curve:
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+h1 <- data %>% ggplot(aes(Age))  + 
+  scale_y_sqrt()  + 
+  geom_histogram(bins = 20, fill = "light blue", color = "white") + 
+  geom_line(aes(Age, y = ..count..), stat="density", bw = 5, size = 2, color = "blue")
+
+h2 <- data %>% ggplot(aes(Annual.Income..k..))  + 
+  scale_y_sqrt()  + 
+  geom_histogram(bins = 20, fill = "light blue", color = "white")+ 
+  geom_line(aes(Annual.Income..k..,y = ..count..), stat="density", bw = 5, size = 2, color = "blue") +
+  labs(x = labels[4])
+
+h3 <- data %>% ggplot(aes(Spending.Score..1.100.)) +
+  geom_histogram(bins = 20, fill = "light blue", color = "white")  +
+  scale_y_sqrt()  +  
+  geom_line(aes(Spending.Score..1.100. ,y = ..count..), stat="density", bw = 5, size = 2, color = "blue") +
+  labs(x = labels[5])
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(h1,h2,h3, ncol = 3)
+```
+
+Age, annual income and spending score do not present a normal distribution: age and annual income ares skewed righ, while spending score is symmetrical but it has too large tails to be normal.
+
+
+## B. Relation between Age, Annual Income and Spending Score
+Pairplot for all columns after dropping non-informative ordinal data (CustomerID and gender) 
+
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+p1 <- data %>% 
+  ggplot() + 
+  geom_point(aes(x = Age, y = Age), color = "blue", size = 2) +  #  + geom_abline(color = "light blue", size = 2)
+  labs(x = labels[3], y = labels[3])
+
+p2 <- data %>% ggplot()  + 
+  geom_point(aes(x = Age, y = data$Annual.Income..k..), color = "blue", size = 2) +
+  labs(x = labels[3], y = labels[4])
+
+p3 <- data %>% ggplot()  + 
+  geom_point(aes(x = Age, y = Spending.Score..1.100.), color = "blue", size = 2) +
+  labs(x = labels[3], y = labels[5])
+
+p4 <- data %>% ggplot()  + 
+  geom_point(aes(x = Annual.Income..k.., y = Age), color = "blue", size = 2) +
+  labs(x = labels[4], y = labels[3])
+
+p5 <- data %>% ggplot()  + 
+  geom_point(aes(x = Annual.Income..k.., y = Annual.Income..k..), color = "blue", size = 2) +
+  labs(x = labels[4], y = labels[4])
+
+p6 <- data %>% ggplot()  + 
+  geom_point(aes(x = Annual.Income..k.., y = Spending.Score..1.100.), color = "blue", size = 2) +
+  labs(x = labels[4], y = labels[5])
+
+p7 <- data %>% ggplot()  + 
+  geom_point(aes(x = Spending.Score..1.100., y = Age), color = "blue", size = 2) +
+  labs(x = labels[5], y = labels[3])
+
+p8 <- data %>% ggplot()  + 
+  geom_point(aes(x = Spending.Score..1.100., y = Annual.Income..k..), color = "blue", size = 2) +
+  labs(x = labels[5], y = labels[4])
+
+p9 <- data %>% ggplot()  + 
+  geom_point(aes(x = Spending.Score..1.100., y = Spending.Score..1.100.), color = "blue", size = 2) +
+  labs(x = labels[5], y = labels[5])
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(p1,p2,p3, p4, p5, p6, p7, p8, p9, ncol = 3)
+```
+
+Spending score vs annual income show interesting correlation
+
+
+## C. Count plots of gender and density plot of age distribution, by gender:
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+g1 <- data %>% 
+  ggplot(aes(x = Gender, fill = Gender))  + 
+  geom_bar(size = 1, alpha = 0.4) +
+  coord_flip() +
+  labs(x = "")
+
+g2 <- ggplot(data, aes( x = Age, color = Gender, fill = Gender)) + 
+  geom_density(alpha = 0.4)  
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(g1, g2, ncol = 2)
+```
+
+Percentage of male customers = 44%  
+Percentage of female customers = 56%  
+Gender and age are usually good indicators for distinguishing target groups. Here men are slightly more represented than women. There is a difference also in the activity of the two groups (males & females): both males and females are highly active between the ages 25-35 ca., however, women have a second pick of activity between the ages 45-50 ca. while after the age of 45, men's' activity declines.
+
+
+## some more investigation:
+## D. Scatter plot of the age vs annual income, according to gender, with indication of smooth conditional means:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data %>% ggplot(aes(x = Annual.Income..k.., y = Age, color = Gender, fill = Gender))  + 
+  geom_point(size = 2)  +
+  geom_smooth(alpha = 0.2) +
+  labs(x = labels[4], y = labels[3])
+```
+
+
+## E. Scatter plots of the annual income vs spending score, according to gender and age, with indication of smooth conditional means:
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+ai2 <- data %>%
+  ggplot(aes(x = Annual.Income..k.., y = Spending.Score..1.100., color = Gender, fill= Gender)) +   
+  geom_point(size = 2) +
+  geom_smooth(alpha = 0.2) +  
+  labs(x = labels[4], y = labels[5])
+
+ai3 <- data %>%
+  ggplot(aes(x = Annual.Income..k.., y = Spending.Score..1.100., color = age_20, fill = age_20))  + 
+  geom_point(size = 2) +
+  geom_smooth(alpha = 0.2) +
+  labs(x = labels[4], y = labels[5])
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(ai2, ai3, ncol = 2)
+```
+
+
+## F. Distribution of the spending score vs annual income, grouped by gender and age:
+### F1. Boxplots of spending score and boxplots of annual income stratified by age, grouped by gender:
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+b1 <- data %>% ggplot(aes(x = age_20, y = Annual.Income..k.., fill = Gender))  + 
+  scale_y_sqrt() + 
+  geom_boxplot(alpha = 0.4) +
+  labs(x = "Age by 20", y = labels[4])
+
+b2 <- data %>% ggplot(aes(x = age_20, y = Spending.Score..1.100., fill = Gender))  + 
+  scale_y_sqrt() +
+  geom_boxplot(alpha = 0.4) +
+  labs(x = "Age by 20", y = labels[5])
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(b2,b1, ncol = 1)
+```
+
+
+### F2. Boxplots of spending score stratified by annual income, grouped by age and gender:
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+b3 <- data %>% ggplot(aes(x = Annual.Income_20, y = Spending.Score..1.100., fill = age_20))  + 
+  scale_y_sqrt() + 
+  geom_boxplot() +
+  labs(x = "Annual Income, grouped by 20 (k$)", y = labels[5])
+
+b4 <- data %>% ggplot(aes(x = Annual.Income_20, y = Spending.Score..1.100., fill = Gender)) + 
+  scale_y_sqrt() + 
+  geom_boxplot(alpha = 0.4) +
+  labs(x = "Annual Income, grouped by 20 (k$)", y = labels[5])
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(b4,b3, ncol = 1)
+```
+
+
+### F3. Box plots of spending score stratified by annual income, grouped by age; for female and male selectively:
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+b5 <- data[f_index,] %>% 
+  ggplot(aes(x = Annual.Income_20[f_index], y = Spending.Score..1.100., fill = age_20[f_index]))  + 
+  scale_y_sqrt() + 
+  geom_boxplot() +
+  labs(x = "Annual Income, grouped by 20 (k$)", y = labels[5]) +
+  ggtitle("Female customers")
+
+b6 <- data[m_index,] %>% 
+  ggplot(aes(x = Annual.Income_20[m_index], y = Spending.Score..1.100., fill = age_20[m_index])) + 
+  scale_y_sqrt() + 
+  geom_boxplot() +
+  labs(x = "Annual Income, grouped by 20 (k$)", y = labels[5])  +
+  ggtitle("Male customers")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(b5,b6, ncol = 1)
+```
+
+Percentage of the customers representing each strata of annual income:
+- Annual income = 0-20k $:    6%  
+- Annual income = 20-40k $:   17% 
+- Annual income = 40-60k $:   23% 
+- Annual income = 60-80k $:   35% 
+- Annual income = 80-100k $:  12% 
+- Annual income = 100-120k $: 4%  
+- Annual income = 120-140k $: 3%  
+
+The two groups (males and female) seem to have a similar trend and there are not great anomalies, with exception of a few outliers in the males' spending score distribution (image F1). However, some interesting observations emerge when performing the boxplots of spending score stratified by annual income, and grouped by gender and age: in general some important differences between male and female behavior are evident, with exception for customers with an annual income between 40-80k; while customers younger than 40 years old usually have higher spending score, with exception of customers with an annual income between 40-60k, representing the 23% of the entire customers.
+
+
+###############################################################
+## F. Heatmap
+
+Correlation between the different attributes (gender, annual income, age, spending score) of the data:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data_2 <- data %>% mutate(Gender = as.numeric(Gender))
+r <- round(cor(data_2[2:5]),2)
+r
+```
+
+Graph Showing the correlation between the different attributes (gender, annual income, age, spending score) of the data, 
+The map reflects the most correlated features with yellow and least correlated features with viridis 'magma' palette.
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+heatmap.2(cor(data_2[2:5]),
+          cellnote = r,  # same data set for cell labels
+          notecex=1.0,
+          main = "Correlation", # heat map title
+          notecol = "black",      # change font color of cell labels to black
+          labRow = labels[2:5],
+          labCol = labels[2:5],
+          srtRow = 0, 
+          srtCol = 45,	
+          col = magma(250),
+          trace="none",         # turns off trace lines inside the heat map
+          dendrogram = "none",     # only draw a row dendrogram
+          margins = c(5, 5),
+          cexRow = 1,
+          cexCol = 1,
+          keysize = 1,
+          key.title = NA
+)
+```
+
+The attributes do not have good correlation among them
+
+
+
+####################################################################################
+# 4. Analysis: clustering
+
+Clustering is a Machine Learning technique for grouping and finding patterns in the data.
+In clustering not labelled data are given to unsupervised algorithm, meaning that only the input variables(X) are given with no corresponding output variables. 
+Here, I will use principal component analysis and K-means clustering.
+
+
+## 4.1. Principal Component Analysis (PCA):
+PCA is a statistical procedure that uses an orthogonal transformation to convert a set of observations of possibly correlated variables into a set of values of linearly uncorrelated variables called principal components.
+
+PCA works best with numerical data, therefore, the variable gender is transformed in a numerical variable. Moreover, data needs to be standardized to make variables comparable
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+new_data <-  data %>% mutate(Gender= as.numeric(data$Gender))
+log_nd <- log(new_data[,-1])  # log transformation of 'data' data frame
+log_nd <- log_nd %>% mutate(CustomerID = data$CustomerID) %>% as.matrix(.)
+```
+
+Pca performed using the prcomp() function. The variable CustomerID is excluded from the analysis
+```{r, results='hide', message=FALSE, warning=FALSE,error=FALSE}
+pca <- prcomp(log_nd[,-1], center = TRUE, scale = TRUE)
+```
+
+Analysis of the results:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+print(pca)
+summary(pca)
+screeplot(pca, type = "l", npcs = 4, main = "Screeplot")
+```
+
+I obtain 4 principal components (pc1-pc4). Each of these explains a percentage of the total variation in the dataset: 
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+cumpro <- cumsum(pca$sdev^2 / sum(pca$sdev^2))
+cumpro <- data.frame(pc = c(1,2,3,4), "cumulative proportion" = cumpro)
+cumpro %>% ggplot(aes(pc, cumulative.proportion)) + geom_point(color = "Red", size = 4) +
+  labs( x = "PC", y = "Amount of explained variance")
+```
+
+A new data set with pca results (pc1, pc2, pc3, pc4), age, annual income, spending score, gender) is needed for the following analysis.
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+pca_df <- data.frame(pc1 = pca$x[,1], pc2 = pca$x[,2], pc3 = pca$x[,3], pc4 =  pca$x[,4], 
+                     age_20 = age_20,
+                     Annual.Income = Annual.Income_20, 
+                     Spending.Score = Spending.Score_25,
+                     Gender = data$Gender)
+head(pca_df)
+```
+
+Scatter plot pf pc1 and pc2, grouped by age, annual income, and spending score, respectively: 
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+pca1b <- pca_df %>% 
+  ggplot(aes(pc1, pc2,color = age_20, fill = age_20)) +
+  geom_point(aes(color = age_20, fill = age_20, shape = data$Gender), size = 3) +
+  geom_encircle(data = subset(pca_df, age_20 == "[0,20)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[20,40)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[40,60)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[60,80)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 2 (30.30% var.)")
+
+pca1d <- pca_df %>% ggplot(aes(pc1, pc2, color = Annual.Income, fill = Annual.Income)) +
+  geom_point(aes(color = Annual.Income, fill = Annual.Income, shape = data$Gender), size = 3) + 
+  geom_encircle(data = subset(pca_df, Annual.Income == "[0,20)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[20,40)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[40,60)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[60,80)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[80,100)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[100,120)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[120,140)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 2 (30.30% var.)")
+
+pca1f <- pca_df %>% ggplot(aes(pc1, pc2, color = Spending.Score, fill = Spending.Score)) +
+  geom_point(aes(color = pca_df$Spending.Score, fill = pca_df$Spending.Score, shape = data$Gender), size = 3) + 
+  geom_encircle(data = subset(pca_df, Spending.Score == "[0,25)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[25,50)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[50,75)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[75,100)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 2 (30.30% var.)")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(pca1b, pca1d, pca1f, ncol = 1)
+```
+
+
+Scatter plot pf pc1 and pc3, grouped by age, annual income, and spending score, respectively
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+pca2b <- pca_df %>% 
+  ggplot(aes(pc1, pc3,color = age_20, fill = age_20)) +
+  geom_point(aes(color = age_20, fill = age_20, shape = data$Gender), size = 3) +
+  geom_encircle(data = subset(pca_df, age_20 == "[0,20)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[20,40)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[40,60)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[60,80)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 3 (19.56% var.)")
+
+pca2d <- pca_df %>% ggplot(aes(pc1, pc3, color = Annual.Income, fill = Annual.Income)) +
+  geom_point(aes(color = Annual.Income, fill = Annual.Income, shape = data$Gender), size = 3) + 
+  geom_encircle(data = subset(pca_df, Annual.Income == "[0,20)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[20,40)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[40,60)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[60,80)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[80,100)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[100,120)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[120,140)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2)  +
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 3 (19.56% var.)")
+
+pca2f <- pca_df %>% ggplot(aes(pc1, pc3, color = Spending.Score, fill = Spending.Score)) +
+  geom_point(aes(color = pca_df$Spending.Score, fill = pca_df$Spending.Score, shape = data$Gender), size = 3) + 
+  geom_encircle(data = subset(pca_df, Spending.Score == "[0,25)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[25,50)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[50,75)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[75,100)"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2)  +
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 3 (19.56% var.)")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(pca2b, pca2d, pca2f, ncol = 1)
+```
+
+
+Scatter plot of pc2 and pc3, grouped by age, annual income, and spending score, respectively
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+pca3b <- pca_df %>% 
+  ggplot(aes(pc2, pc3,color = age_20, fill = age_20)) +
+  geom_point(aes(color = age_20, fill = age_20, shape = data$Gender), size = 3) +
+  geom_encircle(data = subset(pca_df, age_20 == "[0,20)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[20,40)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[40,60)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, age_20 == "[60,80)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2)  +
+  labs( x = "pc 2 (30.30% var.) ", y = "pc 3 (19.56% var.)")
+
+pca3d <- pca_df %>% ggplot(aes(pc2, pc3, color = Annual.Income, fill = Annual.Income)) +
+  geom_point(aes(color = Annual.Income, fill = Annual.Income, shape = data$Gender), size = 3) + 
+  geom_encircle(data = subset(pca_df, Annual.Income == "[ 0,20)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[20,40)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[40,60)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[60,80)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[80,100)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[100,120)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Annual.Income == "[120,140]"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2)  +
+  labs( x = "pc 2 (30.30% var.) ", y = "pc 3 (19.56% var.)")
+
+pca3f <- pca_df %>% ggplot(aes(pc2, pc3, color = Spending.Score, fill = Spending.Score)) +
+  geom_point(aes(color = pca_df$Spending.Score, fill = pca_df$Spending.Score, shape = data$Gender), size = 3) + 
+  geom_encircle(data = subset(pca_df, Spending.Score == "[0,25)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[25,50)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[50,75)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Spending.Score == "[75,100)"), size =4, s_shape= 1, expand=0.01, spread = 0, alpha = 0.2)  +
+  labs( x = "pc 2 (30.30% var.) ", y = "pc 3 (19.56% var.)")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(pca3b, pca3d, pca3f, ncol = 1)
+```
+
+
+Scatter plots of pc1, pc2, pc3 with the more informative clustering
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(pca1d, pca2d, pca3b, pca3f, ncol = 2)
+```
+
+
+Scatter plots of pc1, pc2, pc3, grouped by gender 
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+g1 <- pca_df %>% 
+  ggplot(aes(pc1, pc2, color = Gender, fill= Gender, shape = Gender)) +
+  geom_point( size = 3) +
+  geom_encircle(aes(color = Gender), data = subset(pca_df, Gender == "Male"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(aes(color = Gender), data = subset(pca_df, Gender == "Female"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2)+
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 2 (30.30% var.)")
+
+g2 <- pca_df %>% 
+  ggplot(aes(pc1, pc3, color = Gender, fill= Gender, shape = Gender)) +
+  geom_point(size = 3)  +
+  geom_encircle(aes(color = Gender), data = subset(pca_df, Gender == "Male"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(aes(color = Gender), data = subset(pca_df, Gender == "Female"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2)+
+  labs( x = "pc 1 (49.15% var.) ", y = "pc 3 (19.56% var.)")
+
+g3 <- pca_df %>% 
+  ggplot(aes(pc2, pc3, color = Gender, fill = Gender, shape = Gender)) +
+  geom_point(size = 3) +
+  geom_encircle(data = subset(pca_df, Gender == "Male"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(pca_df, Gender == "Female"), size =4, s_shape= 1, expand=0.05, spread = 0, alpha = 0.2)  +
+  labs( x = "pc 2 (30.30% var.) ", y = "pc 3 (19.56% var.)")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(g1, g2, g3, ncol = 3)
+```
+
+
+The more informative variables seem to be the annual income and spending score. 
+In the scater plots with gender grouping, the two groups (Male and Female) are completely overlapped, therefore they do not provide significant information.
+
+
+## 4.2. K-means clustering: 
+K-means clustering is an unsupervised machine learning algorithm for partitioning a given data set into a set of k groups (clusters), where k represents the number of groups pre-specified by the analyst. It classifies objects in multiple clusters, such that objects within the same cluster are as similar as possible (high intra-class similarity), whereas objects from different clusters are as dissimilar as possible (low inter-class similarity). In k-means clustering, each cluster is represented by its center (i.e, centroid) which corresponds to the mean of points assigned to the cluster.  
+  
+Main steps for k-means clustering:  
+1: scale the data, to make variables comparable. 
+2: determine the optimal number of Clusters with the 'elbow method': Elbow Method: compute clustering algorithm (k-means clustering) for different values of k. For each k, calculate the total within-cluster sum of square (wss). Plot the curve of wss according to the number of clusters k. The location of a bend (knee) in the plot is generally considered as an indicator of the appropriate number of clusters.  
+3: perform k-means function, using the chosen k. 
+
+The data have to be scaled, to make variables comparable.
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data_scale <- data %>% select(-CustomerID) %>% mutate(Gender = as.numeric(Gender)) %>% scale(.)
+data_scale <- as.data.frame(data_scale)
+```
+
+According to PCA results, annual income and spending score are the two more informative variable, therefore, I perform k-means clustering using these two variables.
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+set.seed(123)
+```
+
+Function to compute total within-cluster sum of square (wss).
+```{r, message=FALSE, warning=FALSE,error=FALSE}
+data2 <- data_scale %>% select(Annual.Income..k.., Spending.Score..1.100.) 
+wss <- function(k) {                            # within-cluster sum of square (wss)
+  kmeans(data2, k, nstart = 10 )$tot.withinss
+}
+```
+
+I compute and plot wss for k = 1 to k = 15 and extract wss for 2-15 clusters.
+```{r, message=FALSE, warning=FALSE,error=FALSE}
+k.values <- 1:15
+wss_values <- map_dbl(k.values, wss)
+```
+
+From the plot of the curve of wss according to the number of clusters k; I choose a k = 5 clusters (elbow method)
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+df <- data.frame(k.values, wss_values)
+df <- df %>% ggplot(aes(k.values, wss_values)) + geom_point() +geom_line() +
+  xlab("Number of clusters K") +
+  ylab("Total within-clusters sum of squares")
+df
+```
+
+I compute k-means clustering with k = 5
+```{r, results='hide', message=FALSE, warning=FALSE,error=FALSE}
+set.seed(123)
+final2 <- kmeans(data2, 5, nstart = 25)
+new_data2 <- data %>% mutate(cluster = final2$cluster)
+```
+
+```{r, results= 'hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+plot_final2 <- new_data2 %>% ggplot(aes(Annual.Income..k.., Spending.Score..1.100., color = factor(cluster), fill= factor(cluster))) + 
+  geom_point(size = 3) + 
+  geom_encircle(data = subset(new_data2, cluster == 1), size =4, s_shape= 0.5, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(new_data2, cluster == 2), size =4, s_shape= 0.5, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(new_data2, cluster == 3), size =4, s_shape= 0.5, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(new_data2, cluster == 4), size =4, s_shape= 0.5, expand=0.01, spread = 0, alpha = 0.2) +
+  geom_encircle(data = subset(new_data2, cluster == 5), size =4, s_shape= 0.5, expand=0.01, spread = 0, alpha = 0.2) +
+  labs(x = labels[4], y = labels[5])
+```
+
+Curve of wss according to the number of clusters k and annual income vs spending score scatter plot showing the distribution of the 5 clusters:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(df, plot_final2, ncol = 2)
+```
+
+Descriptive statistics at the cluster level:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data %>%
+  mutate(Cluster = final2$cluster) %>%
+  group_by(Cluster) %>% select(Cluster, Age, Annual.Income..k.., Spending.Score..1.100.) %>%
+  summarise_all(c(avg="mean", sd = "sd"))
+```
+
+Descriptive statistics at the cluster and gender level:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data %>%
+  mutate(Cluster = final2$cluster) %>%
+  group_by(Cluster, Gender) %>% select(Cluster, Age, Annual.Income..k.., Spending.Score..1.100.) %>%
+  summarise_all(c(avg="mean", sd = "sd"))
+```
+
+
+
+####################################################################################
+# 5. Interpretation of the data
+
+From the PCA and k-means I obtained five clusters with the following characteristics:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data %>%
+  mutate(Cluster = final2$cluster) %>%
+  group_by(Cluster) %>% select(Cluster, Age, Annual.Income..k.., Spending.Score..1.100.) %>%
+  summarise_all(c(avg="mean", sd = "sd")) %>% knitr::kable()
+```
+
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data_cluster <- data %>% mutate(cluster = final2$cluster, age_20 = age_20, Annual.Income_20 = Annual.Income_20, Spending.Score_25 = Spending.Score_25)
+head(data_cluster)
+```
+
+Descriptive statistics at cluster level:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data %>%
+  mutate(Cluster = final2$cluster) %>%
+  group_by(Cluster) %>% select(Cluster, Age, Annual.Income..k.., Spending.Score..1.100.) %>%
+  summarise_all(c(avg="mean")) %>% knitr::kable()
+```
+
+The boxplot representation of the original data stratified by cluster shows that the groups are different and real:
+```{r, results='hide', echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+c1 <- data_cluster %>%
+  ggplot(aes(x = as.factor(cluster), y = Age, fill = as.factor(cluster))) +
+  geom_boxplot() +
+  labs(x = "cluster", y = labels[3])
+
+c2 <- data_cluster %>%
+  ggplot(aes(x = as.factor(cluster), y = Annual.Income..k.., fill = as.factor(cluster))) +
+  geom_boxplot()+
+  labs(x = "cluster", y = labels[4])
+
+c3 <- data_cluster %>%
+  ggplot(aes(x = as.factor(cluster), y = Spending.Score..1.100., fill = as.factor(cluster))) +
+  geom_boxplot()+
+  labs(x = "cluster", y = labels[5])
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+grid.arrange(c1, c2, c3, ncol = 1)
+```
+
+
+### Consideration on the gender factor: 
+Despite through some data exploration and data visualization (chapter 2) it seemed to emerge some interesting observations and important differences between male and female behavior; from the analysis of the clusters grouped by gender, it does not result any important difference and the two groups (female and male) can be treated together:
+```{r, echo=FALSE, message=FALSE, warning=FALSE,error=FALSE}
+data %>%
+  mutate(Cluster = final2$cluster) %>%
+  group_by(Cluster, Gender) %>% select(Cluster, Age, Annual.Income..k.., Spending.Score..1.100.) %>%
+  summarise_all(c(avg="mean")) %>% knitr::kable()
+```
+
+
+
+####################################################################################
+# 6. Conclusions
+
+With the clutering analysis: principal component analysis and k-means, I reach meaningful insights about the mall customer and I segment them into five clusters: 
+- Cluster 1: Customers with low annual income and low annual spending score,  
+- Cluster 2: Customers low annual income but high annual spending score,  
+- Cluster 3: Customers with high annual income and high annual spend, 
+- Cluster 4: Customers with high annual income but low annual spend,  
+- Cluster 5: Customers with medium annual income and medium annual spending score.  
+Data on customers segments can help marketers to make better decisions and plan strategic strategic marketing approach targeted to the specific customers.
